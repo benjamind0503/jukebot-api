@@ -1,10 +1,8 @@
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import requests
-import smtplib
-from email.message import EmailMessage
 
 app = FastAPI()
 
@@ -16,12 +14,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Clés API et config à mettre dans des variables d'environnement (idéalement)
 LOUDLY_API_KEY = "pmdd6s8-I7Y-mfVbSQGHCIoBV1ikiu-Rsv2OkYdhsso"
-EMAIL_ADRESSE = "bdsevents@hotmail.com"
-EMAIL_MDP = "VOTRE_MDP_HOTMAIL"
 
-@app.post("/generate-mix")
+@app.post("/generate-mix", response_class=HTMLResponse)
 async def generate_mix(
     email: str = Form(...),
     style: str = Form(...),
@@ -31,37 +26,32 @@ async def generate_mix(
     exclusions: str = Form(""),
     duree: int = Form(...)
 ):
-    # Choix de mood simplifié basé sur le style
-    mood = "energetic" if transition in ["cut", "drop"] else "chill"
+    mood = "energetic" if transition in ["cut", "drop", "mix"] else "chill"
 
-    # Appel à l'API Loudly pour générer le mix
-    loudly_url = "https://b2b-soundtracks-swagger-dev.loudly.com/api/v1/generate"
     headers = {"Authorization": f"Bearer {LOUDLY_API_KEY}", "Content-Type": "application/json"}
     data = {"style": style, "mood": mood, "duration": duree * 60}
 
-    r = requests.post(loudly_url, headers=headers, json=data)
+    r = requests.post("https://b2b-soundtracks-swagger-dev.loudly.com/api/v1/generate", headers=headers, json=data)
+
     if r.status_code != 200:
-        return {"error": "Erreur Loudly API"}
+        return "<h2>Erreur lors de la génération du mix.</h2>"
+
     audio_url = r.json().get("audio_url")
+    if not audio_url:
+        return "<h2>Mix non généré. Aucun lien reçu de Loudly.</h2>"
 
-    # Envoi de l'e-mail avec le lien
-    msg = EmailMessage()
-    msg['Subject'] = "Ton mix JukeBot est prêt !"
-    msg['From'] = EMAIL_ADRESSE
-    msg['To'] = email
-    msg.set_content(f"""
-Bonjour,
-
-Ton mix personnalisé est prêt !
-
-Tu peux l'écouter ou le télécharger ici :
-{audio_url}
-
-Merci d'avoir utilisé JukeBot !
-    """)
-
-    with smtplib.SMTP_SSL("smtp-mail.outlook.com", 465) as smtp:
-        smtp.login(EMAIL_ADRESSE, EMAIL_MDP)
-        smtp.send_message(msg)
-
-    return RedirectResponse(url=f"/jukebot/merci?mix={audio_url}", status_code=303)
+    return f'''
+    <html>
+      <head><title>Ton mix est prêt !</title></head>
+      <body style="font-family:sans-serif; text-align:center; padding:50px;">
+        <h1>🎧 Ton mix est prêt !</h1>
+        <p>Merci pour ta commande. Voici ton mix généré automatiquement :</p>
+        <audio controls style="margin-top:20px;">
+          <source src="{audio_url}" type="audio/mpeg">
+          Ton navigateur ne supporte pas l’audio.
+        </audio>
+        <p><a href="{audio_url}" download style="display:block; margin-top:20px;">📥 Télécharger le mix</a></p>
+        <p style="margin-top:40px;">Développé par BDS Events avec JukeBot</p>
+      </body>
+    </html>
+    '''
