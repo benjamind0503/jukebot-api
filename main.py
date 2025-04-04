@@ -1,8 +1,9 @@
 
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import requests
+import json
 
 app = FastAPI()
 
@@ -33,25 +34,16 @@ async def generate_mix(
 
     r = requests.post("https://b2b-soundtracks-swagger-dev.loudly.com/api/v1/generate", headers=headers, json=data)
 
-    if r.status_code != 200:
-        return "<h2>Erreur lors de la génération du mix.</h2>"
-
-    audio_url = r.json().get("audio_url")
-    if not audio_url:
-        return "<h2>Mix non généré. Aucun lien reçu de Loudly.</h2>"
+    debug_response = r.text
 
     return f'''
     <html>
-      <head><title>Ton mix est prêt !</title></head>
-      <body style="font-family:sans-serif; text-align:center; padding:50px;">
-        <h1>🎧 Ton mix est prêt !</h1>
-        <p>Merci pour ta commande. Voici ton mix généré automatiquement :</p>
-        <audio controls style="margin-top:20px;">
-          <source src="{audio_url}" type="audio/mpeg">
-          Ton navigateur ne supporte pas l’audio.
-        </audio>
-        <p><a href="{audio_url}" download style="display:block; margin-top:20px;">📥 Télécharger le mix</a></p>
-        <p style="margin-top:40px;">Développé par BDS Events avec JukeBot</p>
+      <head><title>DEBUG JukeBot</title></head>
+      <body style="font-family:monospace; padding:30px;">
+        <h1>Réponse brute de l'API Loudly :</h1>
+        <pre>{debug_response}</pre>
+        <hr>
+        <p>Si tu ne vois pas de "audio_url" ici, c'est que la génération ne fonctionne pas.</p>
       </body>
     </html>
     '''
