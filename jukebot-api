@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,10 +15,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Clés API et config à mettre dans des variables d'environnement (idéalement)
+# Clés API
 LOUDLY_API_KEY = "pmdd6s8-I7Y-mfVbSQGHCIoBV1ikiu-Rsv2OkYdhsso"
 EMAIL_ADRESSE = "bdsevents@hotmail.com"
-EMAIL_MDP = "jojvyz-4zuspe-majsEk"
+EMAIL_MDP = "VOTRE_MDP_HOTMAIL"  # À remplacer avant test
 
 @app.post("/generate-mix")
 async def generate_mix(
@@ -31,10 +30,8 @@ async def generate_mix(
     exclusions: str = Form(""),
     duree: int = Form(...)
 ):
-    # Choix de mood simplifié basé sur le style
     mood = "energetic" if transition in ["cut", "drop"] else "chill"
 
-    # Appel à l'API Loudly pour générer le mix
     loudly_url = "https://b2b-soundtracks-swagger-dev.loudly.com/api/v1/generate"
     headers = {"Authorization": f"Bearer {LOUDLY_API_KEY}", "Content-Type": "application/json"}
     data = {"style": style, "mood": mood, "duration": duree * 60}
@@ -44,7 +41,6 @@ async def generate_mix(
         return {"error": "Erreur Loudly API"}
     audio_url = r.json().get("audio_url")
 
-    # Envoi de l'e-mail avec le lien
     msg = EmailMessage()
     msg['Subject'] = "Ton mix JukeBot est prêt !"
     msg['From'] = EMAIL_ADRESSE
@@ -65,4 +61,3 @@ Merci d'avoir utilisé JukeBot !
         smtp.send_message(msg)
 
     return RedirectResponse(url=f"/jukebot/merci?mix={audio_url}", status_code=303)
-
