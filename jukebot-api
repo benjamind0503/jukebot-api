@@ -1,1 +1,68 @@
 
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+import requests
+import smtplib
+from email.message import EmailMessage
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Clés API et config à mettre dans des variables d'environnement (idéalement)
+LOUDLY_API_KEY = "pmdd6s8-I7Y-mfVbSQGHCIoBV1ikiu-Rsv2OkYdhsso"
+EMAIL_ADRESSE = "bdsevents@hotmail.com"
+EMAIL_MDP = "jojvyz-4zuspe-majsEk"
+
+@app.post("/generate-mix")
+async def generate_mix(
+    email: str = Form(...),
+    style: str = Form(...),
+    occasion: str = Form(...),
+    transition: str = Form(...),
+    artistes: str = Form(""),
+    exclusions: str = Form(""),
+    duree: int = Form(...)
+):
+    # Choix de mood simplifié basé sur le style
+    mood = "energetic" if transition in ["cut", "drop"] else "chill"
+
+    # Appel à l'API Loudly pour générer le mix
+    loudly_url = "https://b2b-soundtracks-swagger-dev.loudly.com/api/v1/generate"
+    headers = {"Authorization": f"Bearer {LOUDLY_API_KEY}", "Content-Type": "application/json"}
+    data = {"style": style, "mood": mood, "duration": duree * 60}
+
+    r = requests.post(loudly_url, headers=headers, json=data)
+    if r.status_code != 200:
+        return {"error": "Erreur Loudly API"}
+    audio_url = r.json().get("audio_url")
+
+    # Envoi de l'e-mail avec le lien
+    msg = EmailMessage()
+    msg['Subject'] = "Ton mix JukeBot est prêt !"
+    msg['From'] = EMAIL_ADRESSE
+    msg['To'] = email
+    msg.set_content(f"""
+Bonjour,
+
+Ton mix personnalisé est prêt !
+
+Tu peux l'écouter ou le télécharger ici :
+{audio_url}
+
+Merci d'avoir utilisé JukeBot !
+    """)
+
+    with smtplib.SMTP_SSL("smtp-mail.outlook.com", 465) as smtp:
+        smtp.login(EMAIL_ADRESSE, EMAIL_MDP)
+        smtp.send_message(msg)
+
+    return RedirectResponse(url=f"/jukebot/merci?mix={audio_url}", status_code=303)
+
